@@ -14,6 +14,7 @@ import { sphereIntersectsBox, sphereIntersectsSphere, distanceToBox } from './ut
 import { BuilderScene } from './scenes/BuilderScene.js';
 import { buildCarMesh, getDefaultConfig, getStatsFromConfig } from './vehicles/CarParts.js';
 import { buildGroundCarMesh } from './vehicles/GroundCar.js';
+import { preloadModels } from './utils/ModelLoader.js';
 
 // ---- State ----
 let state = 'MENU'; // MENU | TAKEOFF | PLAYING | LANDING | GARAGE | BUILDER
@@ -712,11 +713,14 @@ function applyCarConfig(carConfig) {
 }
 
 // ---- Boot ----
-function init() {
+async function init() {
   clock = new THREE.Clock();
   saveData = loadGame();
   initRenderer();
   initGameScene();
+
+  // Preload 3D models (Ferrari car etc.)
+  await preloadModels().catch(() => console.log('Some models failed to load, using procedural fallback'));
 
   // Apply saved car config if exists
   if (saveData.carConfig) {

@@ -1,7 +1,35 @@
 import * as THREE from 'three';
 import { BODY_COLORS } from './CarParts.js';
+import { getModelClone } from '../utils/ModelLoader.js';
 
+// Try to use a real 3D model, fall back to procedural
 export function buildGroundCarMesh(carConfig) {
+  const bodyColor = BODY_COLORS.find(c => c.id === carConfig.bodyColor) || BODY_COLORS[0];
+
+  // Try Ferrari model first
+  const ferrariModel = getModelClone('/models/ferrari.glb', 4);
+  if (ferrariModel) {
+    // Tint the model with the player's chosen color
+    ferrariModel.traverse(child => {
+      if (child.isMesh && child.material) {
+        const mat = child.material.clone();
+        // Tint body panels (not glass/chrome)
+        if (mat.color && mat.metalness < 0.9 && mat.opacity > 0.8) {
+          mat.color.set(bodyColor.color);
+          mat.emissive = new THREE.Color(bodyColor.color);
+          mat.emissiveIntensity = 0.15;
+        }
+        child.material = mat;
+      }
+    });
+    return ferrariModel;
+  }
+
+  // Fallback to procedural car
+  return buildProceduralGroundCar(carConfig);
+}
+
+function buildProceduralGroundCar(carConfig) {
   const group = new THREE.Group();
   const bodyColor = BODY_COLORS.find(c => c.id === carConfig.bodyColor) || BODY_COLORS[0];
 
