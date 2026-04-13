@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sky Racers - Flying Cars Game</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    #game-canvas { display: block; width: 100vw; height: 100vh; }
+
+    /* HUD Overlay */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      pointer-events: none;
+      z-index: 10;
+      padding: 20px;
+      display: none;
+    }
+    #hud.active { display: flex; justify-content: space-between; align-items: flex-start; }
+
+    .hud-panel {
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 12px;
+      padding: 10px 18px;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      backdrop-filter: blur(4px);
+    }
+
+    #coin-display { color: #FFD700; font-size: 24px; }
+
+    #health-bar-container {
+      width: 200px;
+      height: 20px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    #health-bar {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #00ff88, #00cc66);
+      border-radius: 10px;
+      transition: width 0.3s;
+    }
+
+    #speed-display { color: #88ccff; font-size: 14px; margin-top: 4px; }
+    #boost-display { color: #ff8800; font-size: 14px; margin-top: 4px; }
+    #altitude-display { color: #cccccc; font-size: 14px; margin-top: 4px; }
+
+    /* Menu */
+    #menu-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      background: linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a2a4a 100%);
+    }
+    #menu-screen.hidden { display: none; }
+
+    #menu-screen h1 {
+      font-size: 72px;
+      color: #FFD700;
+      text-shadow: 0 0 30px rgba(255,215,0,0.5), 0 4px 8px rgba(0,0,0,0.5);
+      margin-bottom: 10px;
+    }
+    #menu-screen p.subtitle {
+      color: #88ccff;
+      font-size: 20px;
+      margin-bottom: 40px;
+    }
+
+    .menu-btn {
+      background: linear-gradient(135deg, #FFD700, #FFA500);
+      border: none;
+      padding: 16px 48px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #1a0533;
+      border-radius: 50px;
+      cursor: pointer;
+      margin: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      pointer-events: all;
+    }
+    .menu-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px rgba(255,215,0,0.5);
+    }
+
+    /* Garage */
+    #garage-screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+    #garage-screen.active { display: flex; }
+    #garage-screen h2 { color: #FFD700; font-size: 48px; margin-bottom: 20px; }
+    #garage-screen .garage-subtitle { color: #ccc; font-size: 18px; margin-bottom: 30px; }
+
+    .repair-btn {
+      background: linear-gradient(135deg, #00cc66, #00aa44);
+      border: none;
+      padding: 14px 36px;
+      font-size: 20px;
+      font-weight: bold;
+      color: white;
+      border-radius: 50px;
+      cursor: pointer;
+      margin: 8px;
+      transition: transform 0.2s;
+    }
+    .repair-btn:hover { transform: scale(1.05); }
+    .repair-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .repair-btn.free { background: linear-gradient(135deg, #666, #444); }
+
+    #garage-coins { color: #FFD700; font-size: 24px; margin-bottom: 20px; }
+
+    /* Builder */
+    #builder-screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 20;
+      background: linear-gradient(135deg, #0a0a2e 0%, #1a1a3e 100%);
+    }
+    #builder-screen.active { display: flex; }
+
+    .builder-layout {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+    .builder-preview {
+      flex: 1;
+      position: relative;
+    }
+    .builder-preview canvas {
+      width: 100%;
+      height: 100%;
+    }
+    .builder-panel {
+      width: 320px;
+      padding: 30px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .builder-panel h2 { color: #FFD700; font-size: 32px; margin-bottom: 10px; }
+    .builder-section h3 { color: #88ccff; font-size: 16px; margin-bottom: 8px; }
+
+    .option-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .option-btn {
+      padding: 8px 14px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: #1a1a3e;
+      color: #ccc;
+      font-size: 13px;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .option-btn:hover { transform: scale(1.05); }
+    .option-btn.selected { border-color: #FFD700; color: #FFD700; }
+
+    .color-swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid #333;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.2s;
+    }
+    .color-swatch:hover { transform: scale(1.1); }
+    .color-swatch.selected { border-color: #FFD700; transform: scale(1.15); }
+
+    .builder-stats {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 12px;
+      color: #aaa;
+      font-size: 14px;
+    }
+    .builder-stats .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .stat-bar {
+      width: 120px;
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .stat-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .stat-fill.speed { background: #00b4ff; }
+    .stat-fill.turn { background: #00ff88; }
+
+    .done-btn {
+      background: linear-gradient(135deg, #FFD700, #FFA500);
+      border: none;
+      padding: 14px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #1a0533;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      margin-top: auto;
+    }
+    .done-btn:hover { transform: scale(1.05); }
+
+    /* Crash overlay */
+    #crash-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 0, 0, 0.3);
+      z-index: 15;
+      display: none;
+      pointer-events: none;
+    }
+    #crash-overlay.active { display: block; animation: crashFlash 0.5s ease-out; }
+    @keyframes crashFlash {
+      0% { background: rgba(255, 0, 0, 0.6); }
+      100% { background: rgba(255, 0, 0, 0); }
+    }
+
+    /* Coin popup */
+    .coin-popup {
+      position: fixed;
+      color: #FFD700;
+      font-size: 24px;
+      font-weight: bold;
+      pointer-events: none;
+      z-index: 12;
+      animation: coinFloat 1s ease-out forwards;
+    }
+    @keyframes coinFloat {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-60px); }
+    }
+
+    /* Speech bubbles for AI cars */
+    .speech-bubble {
+      position: fixed;
+      background: white;
+      color: #333;
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: bold;
+      pointer-events: none;
+      z-index: 11;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 8px solid white;
+    }
+
+    /* Controls hint */
+    #controls-hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.6);
+      font-size: 14px;
+      z-index: 10;
+      pointer-events: none;
+      text-align: center;
+      display: none;
+    }
+    #controls-hint.active { display: block; }
+
+    /* Drive HUD */
+    #drive-hud {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 13;
+      pointer-events: none;
+      display: none;
+    }
+    #drive-hud.active { display: block; }
+    .drive-hint {
+      background: rgba(0, 0, 0, 0.6);
+      color: #88ccff;
+      padding: 10px 24px;
+      border-radius: 20px;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      backdrop-filter: blur(4px);
+    }
+    .drive-hint.takeoff-ready {
+      color: #00ff88;
+      background: rgba(0, 60, 30, 0.7);
+      font-size: 20px;
+      animation: pulse 1s ease-in-out infinite;
+      border: 2px solid #00ff88;
+    }
+
+    /* Boundary warning */
+    #boundary-warning {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 14;
+      pointer-events: none;
+      display: none;
+    }
+    #boundary-warning.active { display: block; }
+    #boundary-warning .warning-text {
+      color: #ff4444;
+      font-size: 36px;
+      font-weight: bold;
+      text-shadow: 0 0 20px rgba(255,68,68,0.6), 0 2px 4px rgba(0,0,0,0.5);
+      animation: warningPulse 0.8s ease-in-out infinite;
+      text-align: center;
+    }
+    #boundary-warning .warning-arrow {
+      color: #ffcc00;
+      font-size: 48px;
+      text-align: center;
+      animation: warningBounce 0.6s ease-in-out infinite;
+    }
+    @keyframes warningPulse {
+      0%, 100% { opacity: 0.7; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    @keyframes warningBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* Runway indicator */
+    #runway-indicator {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #88aacc;
+      font-size: 14px;
+      font-weight: bold;
+      z-index: 10;
+      pointer-events: none;
+      display: none;
+    }
+
+    /* Takeoff overlay */
+    #takeoff-overlay {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+      pointer-events: none;
+      text-align: center;
+      display: none;
+    }
+    #takeoff-overlay.active { display: block; }
+    #takeoff-overlay h3 {
+      color: #00ff88;
+      font-size: 28px;
+      text-shadow: 0 0 20px rgba(0,255,136,0.5);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    /* Landing overlay */
+    #landing-overlay {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+      pointer-events: none;
+      text-align: center;
+      display: none;
+    }
+    #landing-overlay.active { display: block; }
+    #landing-overlay h3 {
+      color: #ffcc00;
+      font-size: 28px;
+      text-shadow: 0 0 20px rgba(255,204,0,0.5);
+    }
+
+    /* Landing summary */
+    #landing-summary {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      background: rgba(10, 10, 30, 0.9);
+      backdrop-filter: blur(8px);
+    }
+    #landing-summary.active { display: flex; }
+    #landing-summary h2 {
+      color: #00ff88;
+      font-size: 48px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 30px rgba(0,255,136,0.4);
+    }
+    .summary-stat {
+      color: #ccc;
+      font-size: 22px;
+      margin: 8px 0;
+    }
+    .summary-stat span { color: #FFD700; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div>
+      <div class="hud-panel" id="coin-display">0</div>
+    </div>
+    <div>
+      <div class="hud-panel">
+        <div id="health-label">Health</div>
+        <div id="health-bar-container">
+          <div id="health-bar"></div>
+        </div>
+        <div id="speed-display">Speed: 0</div>
+        <div id="boost-display">Boost: Ready</div>
+        <div id="altitude-display">Alt: 0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <div id="menu-screen">
+    <h1>Sky Racers</h1>
+    <p class="subtitle">Build. Fly. Dodge. Earn!</p>
+    <button class="menu-btn" id="play-btn">Play!</button>
+    <button class="menu-btn" id="builder-btn" style="background: linear-gradient(135deg, #88ccff, #4488ff); font-size: 18px; padding: 12px 36px;">Build Your Car</button>
+  </div>
+
+  <!-- Garage -->
+  <div id="garage-screen">
+    <h2>Garage</h2>
+    <p class="garage-subtitle">Your car needs repairs!</p>
+    <div id="garage-coins">0</div>
+    <button class="repair-btn" id="full-repair-btn">Full Repair - 15 coins</button>
+    <button class="repair-btn" id="quick-repair-btn">Quick Repair - 8 coins</button>
+    <button class="repair-btn free" id="free-repair-btn">Free Patch (50% health)</button>
+  </div>
+
+  <!-- Builder -->
+  <div id="builder-screen">
+    <div class="builder-layout">
+      <div class="builder-preview">
+        <canvas id="builder-canvas"></canvas>
+      </div>
+      <div class="builder-panel">
+        <h2>Build Your Car</h2>
+
+        <div class="builder-section">
+          <h3>Body Color</h3>
+          <div class="option-row" id="color-options"></div>
+        </div>
+
+        <div class="builder-section">
+          <h3>Wing Style</h3>
+          <div class="option-row" id="wing-options"></div>
+        </div>
+
+        <div class="builder-section">
+          <h3>Engine</h3>
+          <div class="option-row" id="engine-options"></div>
+        </div>
+
+        <div class="builder-section">
+          <h3>Decal</h3>
+          <div class="option-row" id="decal-options"></div>
+        </div>
+
+        <div class="builder-stats">
+          <div class="stat-row">
+            <span>Speed</span>
+            <div class="stat-bar"><div class="stat-fill speed" id="stat-speed"></div></div>
+          </div>
+          <div class="stat-row">
+            <span>Handling</span>
+            <div class="stat-bar"><div class="stat-fill turn" id="stat-turn"></div></div>
+          </div>
+        </div>
+
+        <button class="done-btn" id="builder-done-btn">Done!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crash overlay -->
+  <div id="crash-overlay"></div>
+
+  <!-- Controls hint -->
+  <div id="controls-hint">
+    Arrow Keys to fly &middot; Space for boost &middot; T to take off &middot; L to land
+  </div>
+
+  <!-- Drive HUD -->
+  <div id="drive-hud">
+    <div class="drive-hint">Explore the city!</div>
+  </div>
+
+  <!-- Boundary warning -->
+  <div id="boundary-warning">
+    <div class="warning-arrow">&#8634;</div>
+    <div class="warning-text">Turn Around!</div>
+  </div>
+
+  <!-- Runway indicator -->
+  <div id="runway-indicator"></div>
+
+  <!-- Takeoff overlay -->
+  <div id="takeoff-overlay">
+    <h3>Press T to take off!</h3>
+  </div>
+
+  <!-- Landing overlay -->
+  <div id="landing-overlay">
+    <h3>Landing...</h3>
+  </div>
+
+  <!-- Landing summary -->
+  <div id="landing-summary">
+    <h2>Flight Complete!</h2>
+    <div class="summary-stat">Coins earned: <span id="summary-coins">0</span></div>
+    <div class="summary-stat">Total coins: <span id="summary-total">0</span></div>
+    <button class="menu-btn" id="summary-done-btn" style="margin-top: 30px;">Fly Again!</button>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

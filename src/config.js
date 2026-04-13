@@ -1,0 +1,44 @@
+export default {
+  // City — wide gaps for kid-friendly flying
+  CITY_GRID_SIZE: 16,
+  CITY_CELL_SIZE: 18,
+  BUILDING_MAX_HEIGHT: 45,
+  BUILDING_MIN_HEIGHT: 5,
+
+  // Player flight
+  PLAYER_BASE_SPEED: 18,
+  PLAYER_TURN_SPEED: 2.0,
+  PLAYER_PITCH_SPEED: 1.5,
+  BOOST_MULTIPLIER: 1.8,
+  BOOST_DURATION: 2,
+  BOOST_COOLDOWN: 5,
+  MIN_ALTITUDE: 3,
+  MAX_ALTITUDE: 80,
+
+  // Health — forgiving for kids
+  HEALTH_MAX: 150,
+  DAMAGE_AI_COLLISION: 25,
+  DAMAGE_BUILDING_COLLISION: 8,
+
+  // Coins — more coins, easier to get
+  COIN_SPAWN_COUNT: 60,
+  COIN_RESPAWN_DELAY: 2,
+  NEAR_MISS_DISTANCE: 5,
+  NEAR_MISS_BONUS: 5,
+
+  // AI Cars
+  AI_CAR_COUNT: 3,
+  AI_DECISION_INTERVAL: 4,
+  AI_SPEED_MIN: 10,
+  AI_SPEED_MAX: 16,
+
+  // Garage — cheaper repairs
+  REPAIR_COST_FULL: 15,
+  REPAIR_COST_QUICK: 8,
+  FREE_REPAIR_HEALTH: 75,
+
+  // Camera
+  CAMERA_DISTANCE: 14,
+  CAMERA_HEIGHT: 6,
+  CAMERA_LERP: 3,
+};
