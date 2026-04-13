@@ -542,11 +542,25 @@ function updateDriving(dt) {
   pos.x += forward.x * driveCurrentSpeed * dt;
   pos.z += forward.z * driveCurrentSpeed * dt;
 
-  // Keep within city bounds
+  // Building collision for ground driving — push car out of buildings
+  const driveSphere = new THREE.Sphere(pos.clone(), 2.5);
+  for (const box of city.buildingBoxes) {
+    if (sphereIntersectsBox(driveSphere, box)) {
+      const boxCenter = new THREE.Vector3();
+      box.getCenter(boxCenter);
+      boxCenter.y = pos.y;
+      const pushDir = pos.clone().sub(boxCenter).normalize();
+      pos.add(pushDir.multiplyScalar(1.5));
+      driveCurrentSpeed *= 0.3; // Slow down on hit
+      break;
+    }
+  }
+
+  // Keep within city bounds (island boundary)
   const halfCity = (config.CITY_GRID_SIZE * config.CITY_CELL_SIZE) / 2;
   const boundary = halfCity * 1.1;
   pos.x = THREE.MathUtils.clamp(pos.x, -boundary, boundary);
-  pos.z = THREE.MathUtils.clamp(pos.z, -boundary, boundary * 1.5); // allow reaching runway south
+  pos.z = THREE.MathUtils.clamp(pos.z, -boundary, boundary * 1.5);
 
   // Spin wheels
   playerCar.mesh.traverse(child => {
@@ -558,12 +572,13 @@ function updateDriving(dt) {
   // Animate city life
   city.update(dt);
 
-  // Check if near runway start — show takeoff prompt
+  // Check if near runway — show takeoff prompt
   const runwaySouth = runway.getTakeoffPosition();
   const distToRunway = pos.distanceTo(runwaySouth);
+  const onRunway = runway.isOnRunway(pos);
   const driveHud = document.getElementById('drive-hud');
 
-  if (distToRunway < 15) {
+  if (onRunway || distToRunway < 25) {
     driveHud.innerHTML = '<div class="drive-hint takeoff-ready">Press T to take off!</div>';
     if (input.isDown('KeyT')) {
       // Transform back and take off!
