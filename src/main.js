@@ -551,16 +551,49 @@ function updateDriving(dt) {
       boxCenter.y = pos.y;
       const pushDir = pos.clone().sub(boxCenter).normalize();
       pos.add(pushDir.multiplyScalar(1.5));
-      driveCurrentSpeed *= 0.3; // Slow down on hit
+      driveCurrentSpeed *= 0.3;
       break;
     }
   }
 
-  // Keep within city bounds (island boundary)
+  // NPC ground car collision — push apart
+  if (city.groundCars) {
+    for (const npc of city.groundCars) {
+      const dist = pos.distanceTo(npc.position);
+      if (dist < 3) {
+        const pushDir = pos.clone().sub(npc.position).normalize();
+        pushDir.y = 0;
+        pos.add(pushDir.multiplyScalar(1));
+        npc.position.add(pushDir.multiplyScalar(-0.5));
+        driveCurrentSpeed *= 0.5;
+      }
+    }
+  }
+
+  // People collision — push people out of the way gently
+  if (city.people) {
+    for (const person of city.people) {
+      const dist = pos.distanceTo(person.position);
+      if (dist < 2.5) {
+        const pushDir = person.position.clone().sub(pos).normalize();
+        pushDir.y = 0;
+        person.position.add(pushDir.multiplyScalar(3)); // People jump out of the way
+      }
+    }
+  }
+
+  // Island boundary — keep car on land, not in ocean
   const halfCity = (config.CITY_GRID_SIZE * config.CITY_CELL_SIZE) / 2;
-  const boundary = halfCity * 1.1;
-  pos.x = THREE.MathUtils.clamp(pos.x, -boundary, boundary);
-  pos.z = THREE.MathUtils.clamp(pos.z, -boundary, boundary * 1.5);
+  const islandRadius = halfCity * 1.05;
+  const distFromCenter = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+  if (distFromCenter > islandRadius && pos.z < halfCity * 1.3) {
+    // Push back toward center (on land), except allow runway area (high Z)
+    const toCenter = new THREE.Vector3(-pos.x, 0, -pos.z).normalize();
+    pos.add(toCenter.multiplyScalar(2));
+    driveCurrentSpeed *= 0.5;
+  }
+  // Allow driving south to runway area
+  pos.z = THREE.MathUtils.clamp(pos.z, -islandRadius, halfCity * 1.5);
 
   // Spin wheels
   playerCar.mesh.traverse(child => {

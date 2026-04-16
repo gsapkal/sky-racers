@@ -186,6 +186,9 @@ export class City {
     // --- Mountains in the distance (GLB model) ---
     this.loadMountains();
 
+    // --- Pine trees along the coastline ---
+    this.loadCoastalTrees(halfCity, islandRadius);
+
     // --- Small islands in the ocean ---
     const islandMat = new THREE.MeshStandardMaterial({ color: 0x66aa44, roughness: 0.8 });
     for (let i = 0; i < 6; i++) {
@@ -444,6 +447,39 @@ export class City {
 
     this.scene.add(group);
     return group;
+  }
+
+  async loadCoastalTrees(halfCity, islandRadius) {
+    try {
+      const pineModel = await loadModel('/models/pinetrees.glb');
+      // Place pine tree clusters along the coastal grass ring
+      const numClusters = 20;
+      for (let i = 0; i < numClusters; i++) {
+        const angle = (i / numClusters) * Math.PI * 2 + Math.random() * 0.3;
+        const dist = islandRadius * (0.88 + Math.random() * 0.12); // On the grass ring
+        const x = Math.cos(angle) * dist;
+        const z = Math.sin(angle) * dist;
+
+        const pine = pineModel.clone();
+        const scale = 0.2 + Math.random() * 0.15;
+        pine.scale.setScalar(scale);
+        pine.position.set(x, 0, z);
+        pine.rotation.y = Math.random() * Math.PI * 2;
+        // Tint dark green
+        pine.traverse(child => {
+          if (child.isMesh && child.material) {
+            child.material = child.material.clone();
+            child.material.color.set(0x226633);
+            child.material.emissive = new THREE.Color(0x112211);
+            child.material.emissiveIntensity = 0.15;
+          }
+        });
+        this.scene.add(pine);
+      }
+    } catch (e) {
+      // Fallback: no coastal trees
+      console.log('Pine tree model not available');
+    }
   }
 
   async loadStreetTrees(halfCity, gridSize, cellSize, trunkMat, foliageMat) {

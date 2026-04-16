@@ -38,6 +38,7 @@ export async function preloadModels() {
     '/models/toycar.glb',
     '/models/mountain.glb',
     '/models/animetree.glb',
+    '/models/pinetrees.glb',
   ];
 
   const results = {};
