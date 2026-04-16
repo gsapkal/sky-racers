@@ -464,10 +464,23 @@ export class City {
       const treeModel = await loadModel('/models/animetree.glb');
       for (const pos of treePositions) {
         const tree = treeModel.clone();
-        const scale = 0.3 + Math.random() * 0.3; // ~4-8 units tall, good for street trees
+        const scale = 0.3 + Math.random() * 0.3;
         tree.scale.setScalar(scale);
         tree.position.set(pos.x, 0, pos.z);
         tree.rotation.y = Math.random() * Math.PI * 2;
+        // Tint: green leaves, brown trunk
+        tree.traverse(child => {
+          if (child.isMesh && child.material) {
+            child.material = child.material.clone();
+            if (child.name.toLowerCase().includes('trunk')) {
+              child.material.color.set(0x6B4226);
+            } else {
+              child.material.color.set(0x33aa33);
+              child.material.emissive = new THREE.Color(0x114411);
+              child.material.emissiveIntensity = 0.2;
+            }
+          }
+        });
         this.scene.add(tree);
       }
     } catch (e) {
