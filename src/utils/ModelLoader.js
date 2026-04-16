@@ -36,6 +36,8 @@ export async function preloadModels() {
   const models = [
     '/models/ferrari.glb',
     '/models/toycar.glb',
+    '/models/mountain.glb',
+    '/models/animetree.glb',
   ];
 
   const results = {};

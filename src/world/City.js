@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import config from '../config.js';
+import { loadModel } from '../utils/ModelLoader.js';
 
 const BUILDING_PALETTES = [
   // Glass towers — brighter, more visible
@@ -182,51 +183,8 @@ export class City {
     ocean.position.y = -0.5;
     this.scene.add(ocean);
 
-    // --- Mountains in the distance ---
-    const mountainMat = new THREE.MeshStandardMaterial({
-      color: 0x556655,
-      emissive: 0x223322,
-      emissiveIntensity: 0.1,
-      roughness: 0.9,
-    });
-    const snowMat = new THREE.MeshStandardMaterial({
-      color: 0xeeeeff,
-      emissive: 0x888899,
-      emissiveIntensity: 0.1,
-      roughness: 0.6,
-    });
-    for (let i = 0; i < 12; i++) {
-      const angle = (i / 12) * Math.PI * 2;
-      const dist = 280 + Math.random() * 60;
-      const height = 30 + Math.random() * 50;
-      const radius = 20 + Math.random() * 25;
-
-      const mountain = new THREE.Mesh(
-        new THREE.ConeGeometry(radius, height, 6),
-        mountainMat
-      );
-      mountain.position.set(
-        Math.cos(angle) * dist,
-        height / 2 - 2,
-        Math.sin(angle) * dist
-      );
-      mountain.rotation.y = Math.random() * Math.PI;
-      this.scene.add(mountain);
-
-      // Snow cap
-      if (height > 45) {
-        const snowCap = new THREE.Mesh(
-          new THREE.ConeGeometry(radius * 0.35, height * 0.25, 6),
-          snowMat
-        );
-        snowCap.position.set(
-          mountain.position.x,
-          height - height * 0.12 - 2,
-          mountain.position.z
-        );
-        this.scene.add(snowCap);
-      }
-    }
+    // --- Mountains in the distance (GLB model) ---
+    this.loadMountains();
 
     // --- Small islands in the ocean ---
     const islandMat = new THREE.MeshStandardMaterial({ color: 0x66aa44, roughness: 0.8 });
@@ -488,6 +446,88 @@ export class City {
     return group;
   }
 
+  async loadStreetTrees(halfCity, gridSize, cellSize, trunkMat, foliageMat) {
+    // Collect tree positions
+    const treePositions = [];
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < 2; j++) {
+        if (Math.random() > 0.6) continue;
+        const roadZ = -halfCity + i * cellSize;
+        const side = j === 0 ? -1 : 1;
+        const treeX = -halfCity + Math.floor(Math.random() * gridSize) * cellSize + cellSize / 2;
+        const offsetZ = side * cellSize * 0.22;
+        treePositions.push({ x: treeX + (Math.random() - 0.5) * 2, z: roadZ + offsetZ });
+      }
+    }
+
+    try {
+      const treeModel = await loadModel('/models/animetree.glb');
+      for (const pos of treePositions) {
+        const tree = treeModel.clone();
+        const scale = 0.3 + Math.random() * 0.3; // ~4-8 units tall, good for street trees
+        tree.scale.setScalar(scale);
+        tree.position.set(pos.x, 0, pos.z);
+        tree.rotation.y = Math.random() * Math.PI * 2;
+        this.scene.add(tree);
+      }
+    } catch (e) {
+      // Fallback to procedural trees
+      for (const pos of treePositions) {
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 3, 6), trunkMat);
+        trunk.position.set(pos.x, 1.5, pos.z);
+        this.scene.add(trunk);
+        const foliage = new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 8), foliageMat);
+        foliage.position.set(pos.x, 4, pos.z);
+        foliage.scale.y = 0.7;
+        this.scene.add(foliage);
+      }
+    }
+  }
+
+  async loadMountains() {
+    try {
+      const mountainModel = await loadModel('/models/mountain.glb');
+
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const dist = 280 + Math.random() * 60;
+        const scale = 15 + Math.random() * 25;
+
+        const mountain = mountainModel.clone();
+        mountain.scale.setScalar(scale);
+        mountain.position.set(
+          Math.cos(angle) * dist,
+          -2,
+          Math.sin(angle) * dist
+        );
+        mountain.rotation.y = Math.random() * Math.PI * 2;
+        // Tint mountains green
+        mountain.traverse(child => {
+          if (child.isMesh && child.material) {
+            child.material = child.material.clone();
+            child.material.color.set(0x44aa55);
+            child.material.emissive = new THREE.Color(0x224422);
+            child.material.emissiveIntensity = 0.15;
+          }
+        });
+        this.scene.add(mountain);
+      }
+    } catch (e) {
+      // Fallback to procedural cone mountains
+      console.log('Mountain model not available, using procedural');
+      const mountainMat = new THREE.MeshStandardMaterial({ color: 0x556655, roughness: 0.9 });
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const dist = 280 + Math.random() * 60;
+        const height = 30 + Math.random() * 50;
+        const mountain = new THREE.Mesh(new THREE.ConeGeometry(20 + Math.random() * 25, height, 6), mountainMat);
+        mountain.position.set(Math.cos(angle) * dist, height / 2 - 2, Math.sin(angle) * dist);
+        mountain.rotation.y = Math.random() * Math.PI;
+        this.scene.add(mountain);
+      }
+    }
+  }
+
   addRooftopDetails() {
     for (const building of this.buildings) {
       if (Math.random() > 0.3) continue;
@@ -547,27 +587,8 @@ export class City {
     const benchMat = new THREE.MeshStandardMaterial({ color: 0x8B6914, roughness: 0.8 });
     const personColors = [0xff4444, 0x4444ff, 0x44aa44, 0xffaa00, 0xff44aa, 0x44ffff, 0xaa44ff];
 
-    // --- Street trees along roads ---
-    for (let i = 0; i < CITY_GRID_SIZE; i++) {
-      for (let j = 0; j < 2; j++) {
-        if (Math.random() > 0.6) continue;
-        const roadZ = -halfCity + i * CITY_CELL_SIZE;
-        const side = j === 0 ? -1 : 1;
-        const treeX = -halfCity + Math.floor(Math.random() * CITY_GRID_SIZE) * CITY_CELL_SIZE + CITY_CELL_SIZE / 2;
-        const offsetZ = side * CITY_CELL_SIZE * 0.22;
-
-        // Trunk
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 3, 6), trunkMat);
-        trunk.position.set(treeX + (Math.random() - 0.5) * 2, 1.5, roadZ + offsetZ);
-        this.scene.add(trunk);
-
-        // Round foliage (friendly for kids)
-        const foliage = new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 8), foliageMat);
-        foliage.position.set(trunk.position.x, 4, trunk.position.z);
-        foliage.scale.y = 0.7;
-        this.scene.add(foliage);
-      }
-    }
+    // --- Street trees along roads (GLB model or procedural fallback) ---
+    this.loadStreetTrees(halfCity, CITY_GRID_SIZE, CITY_CELL_SIZE, trunkMat, foliageMat);
 
     // --- Streetlights along roads ---
     for (let i = 0; i < CITY_GRID_SIZE; i += 2) {

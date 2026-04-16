@@ -734,8 +734,8 @@ async function init() {
   initRenderer();
   initGameScene();
 
-  // Preload 3D models (Ferrari car etc.)
-  await preloadModels().catch(() => console.log('Some models failed to load, using procedural fallback'));
+  // Preload 3D models in background (don't block menu)
+  preloadModels().catch(() => console.log('Some models failed to load, using procedural fallback'));
 
   // Apply saved car config if exists
   if (saveData.carConfig) {
